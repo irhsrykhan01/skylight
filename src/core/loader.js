@@ -10,15 +10,28 @@ class Loader {
     this.events = new Map();
   }
 
-  // Helper memindai file .js secara rekursif
+  // Pemindai rekursif kustom yang jauh lebih stabil di semua OS (termasuk Linux arm64)
   getFiles(dir) {
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
       return [];
     }
-    return fs.readdirSync(dir, { recursive: true })
-      .filter(file => file.endsWith('.js'))
-      .map(file => path.join(dir, file));
+    
+    const files = [];
+    const scan = (currentDir) => {
+      const items = fs.readdirSync(currentDir, { withFileTypes: true });
+      for (const item of items) {
+        const fullPath = path.join(currentDir, item.name);
+        if (item.isDirectory()) {
+          scan(fullPath); // Telusuri folder di dalam folder
+        } else if (item.isFile() && item.name.endsWith('.js')) {
+          files.push(fullPath);
+        }
+      }
+    };
+    
+    scan(dir);
+    return files;
   }
 
   // Load semua Command
@@ -29,7 +42,6 @@ class Loader {
     
     for (const file of files) {
       try {
-        // Menggunakan cache-buster '?v=timestamp' untuk mendukung Hot Reload nantinya
         const fileUrl = pathToFileURL(file).href + `?v=${Date.now()}`;
         const module = await import(fileUrl);
         const cmd = module.default;
@@ -71,6 +83,9 @@ class Loader {
         }
 
         this.events.set(event.name, event);
+
+        // Cetak log info pemuatan event untuk memverifikasi proses berhasil
+        logger.info(`Memuat event dinamis: [${event.name}] dari ${path.basename(file)}`);
 
         // Daftarkan event secara langsung ke socket Baileys
         sock.ev.on(event.name, (...args) => event.execute(sock, ...args));
