@@ -1,20 +1,26 @@
 import { showBanner } from './src/core/banner.js';
 import { logger } from './src/core/logger.js';
+import client from './src/core/client.js';
 
 async function bootstrap() {
   try {
-    // Menampilkan Banner UI SkyLight ke terminal
+    // 1. Tampilkan Banner UI
     showBanner();
     
-    logger.info('Memulai inisialisasi framework SkyLight...');
+    logger.info('Menginisialisasi framework SkyLight...');
+
+    // 2. Crash Handler Global agar proses tidak mati mendadak saat runtime error (Stage 9: Crash Handler)
+    process.on('uncaughtException', (err) => {
+      logger.error('Terdeteksi Uncaught Exception:', err);
+    });
+
+    process.on('unhandledRejection', (reason, promise) => {
+      logger.error('Terdeteksi Unhandled Rejection pada Promise:', promise);
+      console.error(reason);
+    });
     
-    // Simulasi pemuatan modul-modul dasar (akan diganti sistem aslinya nanti)
-    await new Promise(resolve => setTimeout(resolve, 500));
-    logger.success('Konfigurasi berhasil dimuat.');
-    
-    await new Promise(resolve => setTimeout(resolve, 500));
-    logger.success('SkyLight core telah siap.');
-    logger.info('Menunggu tahap integrasi WhatsApp (Baileys)...');
+    // 3. Mulai jalankan client Baileys
+    await client.start();
     
   } catch (error) {
     logger.error('Gagal menjalankan bootstrap aplikasi:', error);
