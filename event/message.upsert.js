@@ -11,16 +11,19 @@ export default {
       const rawMsg = chatUpdate.messages[0];
       if (!rawMsg) return;
       
-      // Abaikan Story / Status WhatsApp agar bot hemat resource
+      // Abaikan update status/story WhatsApp
       if (rawMsg.key && rawMsg.key.remoteJid === 'status@broadcast') return; 
 
-      // Serialisasi objek pesan agar bersih dan mudah digunakan
+      // Parsing pesan masuk
       const m = await serialize(sock, rawMsg);
-      if (!m || !m.body) return;
+      if (!m) return;
+
+      // CETAK LOG: Memudahkan pemantauan apakah WhatsApp mengirim data ke bot
+      logger.info(`Pesan Masuk: [${m.pushName}] -> ${m.body || `[Tipe: ${m.type}]`}`);
 
       const prefix = config.prefix;
       const isCmd = m.body.startsWith(prefix);
-      if (!isCmd) return; // Hiraukan jika pesan biasa (bukan command)
+      if (!isCmd) return; // Hiraukan jika bukan command
 
       // Memecah argumen dan nama command
       const args = m.body.slice(prefix.length).trim().split(/ +/);
@@ -28,10 +31,18 @@ export default {
       
       // Cari command berdasarkan nama utama atau aliasnya
       const command = loader.commands.get(cmdName) || loader.commands.get(loader.aliases.get(cmdName));
-      
       if (!command) return;
 
-      // Jalankan command
+      // Filter anti-looping diri sendiri: 
+      // Hanya izinkan pesan dari diri sendiri jika pengirimnya terdaftar sebagai owner di config.js
+      if (rawMsg.key.fromMe) {
+        const ownerNumbers = config.owner.map(num => num.replace(/[^0-9]/g, ''));
+        const senderNumber = m.sender.split('@')[0];
+        if (!ownerNumbers.includes(senderNumber)) {
+          return;
+        }
+      }
+
       logger.info(`Menjalankan perintah: ${prefix}${cmdName} dari ${m.pushName}`);
       await command.execute(m, { sock, args, prefix, command: cmdName });
 
