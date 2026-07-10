@@ -5,7 +5,7 @@ export default {
   prefix: '.',
   pairing: {
     enabled: false, // Ubah ke false jika ingin menggunakan QR Code login
-    phoneNumber: '6288219426032' // Nomor WhatsApp yang akan dipasangkan jika pairing.enabled = true
+    phoneNumber: '628****' // Nomor WhatsApp yang akan dipasangkan jika pairing.enabled = true
   },
   timezone: 'Asia/Jakarta',
   theme: {
