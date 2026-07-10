@@ -4,7 +4,7 @@ export default {
   owner: ['6285135044757'], // Ganti dengan nomor WhatsApp owner Anda (tanpa @s.whatsapp.net)
   prefix: '.',
   pairing: {
-    enabled: true, // Ubah ke false jika ingin menggunakan QR Code login
+    enabled: false, // Ubah ke false jika ingin menggunakan QR Code login
     phoneNumber: '6288219426032' // Nomor WhatsApp yang akan dipasangkan jika pairing.enabled = true
   },
   timezone: 'Asia/Jakarta',
