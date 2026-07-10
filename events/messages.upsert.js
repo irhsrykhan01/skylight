@@ -2,6 +2,7 @@ import { serialize } from '../lib/serialize.js';
 import loader from '../src/core/loader.js';
 import config from '../config.js';
 import { logger } from '../src/core/logger.js';
+import database from '../lib/database.js';
 
 export default {
   name: 'messages.upsert',
@@ -10,31 +11,30 @@ export default {
       if (chatUpdate.type !== 'notify') return;
       const rawMsg = chatUpdate.messages[0];
       if (!rawMsg) return;
-      
-      // Abaikan update status/story WhatsApp
       if (rawMsg.key && rawMsg.key.remoteJid === 'status@broadcast') return; 
 
-      // Parsing pesan masuk
       const m = await serialize(sock, rawMsg);
       if (!m) return;
 
-      // CETAK LOG: Memudahkan pemantauan apakah WhatsApp mengirim data ke bot
+      // Cetak log pesan masuk
       logger.info(`Pesan Masuk: [${m.pushName}] -> ${m.body || `[Tipe: ${m.type}]`}`);
+
+      // --- SIKLUS HOOK 1: beforeMessage ---
+      for (const hook of loader.hooks.beforeMessage) {
+        const result = await hook.execute(m, { sock });
+        if (result === false) return; // Batalkan alur jika hook mengembalikan false
+      }
 
       const prefix = config.prefix;
       const isCmd = m.body.startsWith(prefix);
-      if (!isCmd) return; // Hiraukan jika bukan command
+      if (!isCmd) return; 
 
-      // Memecah argumen dan nama command
       const args = m.body.slice(prefix.length).trim().split(/ +/);
       const cmdName = args.shift().toLowerCase();
       
-      // Cari command berdasarkan nama utama atau aliasnya
       const command = loader.commands.get(cmdName) || loader.commands.get(loader.aliases.get(cmdName));
       if (!command) return;
 
-      // Filter anti-looping diri sendiri: 
-      // Hanya izinkan pesan dari diri sendiri jika pengirimnya terdaftar sebagai owner di config.js
       if (rawMsg.key.fromMe) {
         const ownerNumbers = config.owner.map(num => num.replace(/[^0-9]/g, ''));
         const senderNumber = m.sender.split('@')[0];
@@ -43,8 +43,20 @@ export default {
         }
       }
 
+      // --- SIKLUS HOOK 2: beforeCommand ---
+      for (const hook of loader.hooks.beforeCommand) {
+        const result = await hook.execute(m, { sock, command: cmdName, args });
+        if (result === false) return;
+      }
+
+      // Eksekusi Command
       logger.info(`Menjalankan perintah: ${prefix}${cmdName} dari ${m.pushName}`);
       await command.execute(m, { sock, args, prefix, command: cmdName });
+
+      // --- SIKLUS HOOK 3: afterCommand ---
+      for (const hook of loader.hooks.afterCommand) {
+        await hook.execute(m, { sock, command: cmdName, args });
+      }
 
     } catch (err) {
       logger.error('Error saat memproses messages.upsert:', err);
