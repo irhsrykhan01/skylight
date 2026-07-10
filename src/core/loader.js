@@ -7,10 +7,18 @@ class Loader {
   constructor() {
     this.commands = new Map();
     this.aliases = new Map();
+    this.plugins = new Map(); // Untuk menyimpan instance plugin
     this.events = new Map();
+    
+    // Penampung daftaran Hook
+    this.hooks = {
+      beforeMessage: [],
+      afterMessage: [],
+      beforeCommand: [],
+      afterCommand: []
+    };
   }
 
-  // Pemindai rekursif kustom yang jauh lebih stabil di semua OS (termasuk Linux arm64)
   getFiles(dir) {
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
@@ -23,7 +31,7 @@ class Loader {
       for (const item of items) {
         const fullPath = path.join(currentDir, item.name);
         if (item.isDirectory()) {
-          scan(fullPath); // Telusuri folder di dalam folder
+          scan(fullPath);
         } else if (item.isFile() && item.name.endsWith('.js')) {
           files.push(fullPath);
         }
@@ -34,7 +42,6 @@ class Loader {
     return files;
   }
 
-  // Load semua Command
   async loadCommands() {
     this.commands.clear();
     this.aliases.clear();
@@ -66,7 +73,50 @@ class Loader {
     logger.success(`Berhasil memuat ${this.commands.size} command.`);
   }
 
-  // Load semua Event dan daftarkan ke Socket
+  // Memuat semua Plugin & mendaftarkan Hook mereka secara dinamis
+  async loadPlugins() {
+    this.plugins.clear();
+    this.hooks = {
+      beforeMessage: [],
+      afterMessage: [],
+      beforeCommand: [],
+      afterCommand: []
+    };
+
+    const files = this.getFiles('./plugins');
+    
+    for (const file of files) {
+      try {
+        const fileUrl = pathToFileURL(file).href + `?v=${Date.now()}`;
+        const module = await import(fileUrl);
+        const plugin = module.default;
+
+        if (!plugin || !plugin.name) {
+          logger.warn(`File plugin ${file} tidak valid.`);
+          continue;
+        }
+
+        const pluginName = plugin.name.toLowerCase();
+        this.plugins.set(pluginName, plugin);
+
+        // Jika plugin mengekspor hooks, daftarkan ke pendengar siklus
+        if (plugin.hooks) {
+          for (const [hookName, fn] of Object.entries(plugin.hooks)) {
+            if (this.hooks[hookName] && typeof fn === 'function') {
+              this.hooks[hookName].push({
+                pluginName: plugin.name,
+                execute: fn
+              });
+            }
+          }
+        }
+      } catch (err) {
+        logger.error(`Gagal memuat plugin ${file}:`, err);
+      }
+    }
+    logger.success(`Berhasil memuat ${this.plugins.size} plugin.`);
+  }
+
   async loadEvents(sock) {
     this.events.clear();
     const files = this.getFiles('./events');
@@ -78,16 +128,12 @@ class Loader {
         const event = module.default;
 
         if (!event || !event.name || typeof event.execute !== 'function') {
-          logger.warn(`File event ${file} tidak memiliki struktur execute() yang valid.`);
+          logger.warn(`File event ${file} tidak valid.`);
           continue;
         }
 
         this.events.set(event.name, event);
-
-        // Cetak log info pemuatan event untuk memverifikasi proses berhasil
         logger.info(`Memuat event dinamis: [${event.name}] dari ${path.basename(file)}`);
-
-        // Daftarkan event secara langsung ke socket Baileys
         sock.ev.on(event.name, (...args) => event.execute(sock, ...args));
       } catch (err) {
         logger.error(`Gagal memuat event ${file}:`, err);
