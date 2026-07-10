@@ -1,7 +1,7 @@
 import makeWASocket, { 
   useMultiFileAuthState, 
   DisconnectReason, 
-  fetchLatestBaileysVersion, // Digunakan untuk bypass error 405
+  fetchLatestBaileysVersion, 
   Browsers 
 } from '@whiskeysockets/baileys';
 import pino from 'pino';
@@ -11,7 +11,7 @@ import qrcode from 'qrcode-terminal';
 import pc from 'picocolors';
 import config from '../../config.js';
 import { logger } from './logger.js';
-import loader from './loader.js'; // Import loader utama SkyLight
+import loader from './loader.js';
 
 class SkyLightClient {
   constructor() {
@@ -22,14 +22,13 @@ class SkyLightClient {
 
   async start() {
     try {
-      // 1. Memuat state sesi login (Stage 9: Session Manager)
       const { state, saveCreds } = await useMultiFileAuthState(this.sessionPath);
 
-      // 2. Memuat semua command ke dalam sistem sebelum memulai socket (Stage 12: Command Loader)
+      // Memuat Command & Plugin dinamis sebelum memulai koneksi (Stage 12 & 13)
       await loader.loadCommands();
+      await loader.loadPlugins();
 
-      // 3. Mengambil versi WhatsApp Web terbaru secara dinamis untuk menghindari Error 405 (Stage 8)
-      let version = [2, 3000, 1035194821]; // Fallback aman jika gagal fetch
+      let version = [2, 3000, 1035194821]; 
       try {
         const latestVersion = await fetchLatestBaileysVersion();
         if (latestVersion && latestVersion.version) {
@@ -40,37 +39,30 @@ class SkyLightClient {
         logger.warn('Gagal mengambil versi Baileys terbaru secara dinamis, menggunakan fallback.');
       }
 
-      // 4. Inisialisasi socket Baileys dengan konfigurasi bypass 405 (Stage 8: Integrasi Baileys)
       this.sock = makeWASocket({
         auth: state,
         version: version, 
         logger: pino({ level: 'silent' }), 
         printQRInTerminal: !config.pairing.enabled, 
-        // Menggunakan fingerprint macOS Desktop untuk menghindari filter blokir 405 WhatsApp
         browser: Browsers.macOS('Desktop'), 
         markOnlineOnConnect: true
       });
 
-      // 5. Mendaftarkan seluruh event dinamis dari folder events/ (Stage 11: Event Loader)
+      // Mendaftarkan seluruh event dinamis dari folder events/ (Stage 11)
       await loader.loadEvents(this.sock);
 
-      // 6. Menyimpan kredensial sesi setiap kali diperbarui
       this.sock.ev.on('creds.update', saveCreds);
 
-      // 7. Memantau status koneksi dan penanganan login (Stage 9: Pairing & Reconnect)
       this.sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
 
-        // Penanganan QR Code di terminal (jika pairing code dinonaktifkan)
         if (qr && !config.pairing.enabled) {
           logger.info('QR Code dideteksi. Silakan pindai menggunakan aplikasi WhatsApp Anda:');
           qrcode.generate(qr, { small: true });
         }
 
-        // Penanganan Pairing Code di terminal (jika pairing code diaktifkan)
         if (qr && config.pairing.enabled && !this.pairingCodeRequested) {
           this.pairingCodeRequested = true;
-          // Penundaan sejenak untuk memastikan socket siap sebelum mengirim permintaan kode
           setTimeout(async () => {
             try {
               const phoneNumber = config.pairing.phoneNumber.replace(/[^0-9]/g, '');
@@ -94,13 +86,12 @@ class SkyLightClient {
           }, 3000); 
         }
 
-        // Penanganan status koneksi
         if (connection === 'connecting') {
           logger.info('Mencoba menyambungkan ke server WhatsApp...');
         } else if (connection === 'open') {
           logger.success('SkyLight telah berhasil terhubung ke WhatsApp!');
           logger.info(`Akun terhubung: ${this.sock.user.name || 'Bot'} (${this.sock.user.id.split(':')[0]})`);
-          this.pairingCodeRequested = false; // Reset state pairing setelah sukses masuk
+          this.pairingCodeRequested = false; 
         } else if (connection === 'close') {
           const statusCode = lastDisconnect?.error?.output?.statusCode || lastDisconnect?.error?.code;
           const reason = lastDisconnect?.error?.message || 'Tidak diketahui';
@@ -113,7 +104,6 @@ class SkyLightClient {
             logger.info('Folder sesi berhasil dibersihkan. Silakan jalankan ulang bot untuk masuk kembali.');
             process.exit(0);
           } else {
-            // Reconnect otomatis untuk alasan pemutusan koneksi lainnya
             logger.info('Mencoba menyambungkan kembali dalam 5 detik...');
             setTimeout(() => this.start(), 5000);
           }
