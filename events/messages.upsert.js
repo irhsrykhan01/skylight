@@ -2,7 +2,8 @@ import { serialize } from '../lib/serialize.js';
 import loader from '../src/core/loader.js';
 import config from '../config.js';
 import { logger } from '../src/core/logger.js';
-import database from '../lib/database.js';
+import { calculateSimilarity } from '../lib/utils.js';
+import { checkPermissions } from '../src/core/permission.js'; // Import Checker
 
 export default {
   name: 'messages.upsert',
@@ -16,13 +17,13 @@ export default {
       const m = await serialize(sock, rawMsg);
       if (!m) return;
 
-      // Cetak log pesan masuk
+      // Cetak log pesan masuk ke terminal
       logger.info(`Pesan Masuk: [${m.pushName}] -> ${m.body || `[Tipe: ${m.type}]`}`);
 
       // --- SIKLUS HOOK 1: beforeMessage ---
       for (const hook of loader.hooks.beforeMessage) {
         const result = await hook.execute(m, { sock });
-        if (result === false) return; // Batalkan alur jika hook mengembalikan false
+        if (result === false) return; 
       }
 
       const prefix = config.prefix;
@@ -33,8 +34,38 @@ export default {
       const cmdName = args.shift().toLowerCase();
       
       const command = loader.commands.get(cmdName) || loader.commands.get(loader.aliases.get(cmdName));
-      if (!command) return;
 
+      // SMART HELPER: Koreksi Typo Perintah
+      if (!command) {
+        let bestMatch = null;
+        let highestScore = 0;
+        const threshold = 0.55; 
+
+        const allNames = [];
+        loader.commands.forEach(cmd => {
+          allNames.push(cmd.name);
+          if (cmd.alias) allNames.push(...cmd.alias);
+        });
+
+        for (const name of allNames) {
+          const score = calculateSimilarity(cmdName, name);
+          if (score > highestScore) {
+            highestScore = score;
+            bestMatch = name;
+          }
+        }
+
+        if (highestScore >= threshold && bestMatch) {
+          const resolvedCmd = loader.commands.has(bestMatch) 
+            ? bestMatch 
+            : loader.aliases.get(bestMatch);
+            
+          await m.reply(`*❓ [SMART HELPER] ❓*\nMungkin yang Anda maksud adalah *${prefix}${resolvedCmd}*?`);
+        }
+        return; 
+      }
+
+      // Verifikasi loop aman
       if (rawMsg.key.fromMe) {
         const ownerNumbers = config.owner.map(num => num.replace(/[^0-9]/g, ''));
         const senderNumber = m.sender.split('@')[0];
@@ -42,6 +73,10 @@ export default {
           return;
         }
       }
+
+      // --- VALIDASI HAK AKSES (Permission Checker) ---
+      const hasPermission = await checkPermissions(m, { sock, commandObj: command });
+      if (!hasPermission) return; // Hentikan eksekusi jika izin ditolak
 
       // --- SIKLUS HOOK 2: beforeCommand ---
       for (const hook of loader.hooks.beforeCommand) {
