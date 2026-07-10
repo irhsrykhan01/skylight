@@ -11,6 +11,7 @@ import qrcode from 'qrcode-terminal';
 import pc from 'picocolors';
 import config from '../../config.js';
 import { logger } from './logger.js';
+import loader from './loader.js'; // Import loader utama SkyLight
 
 class SkyLightClient {
   constructor() {
@@ -21,11 +22,14 @@ class SkyLightClient {
 
   async start() {
     try {
-      // 1. Memuat state sesi login (Stage 9)
+      // 1. Memuat state sesi login (Stage 9: Session Manager)
       const { state, saveCreds } = await useMultiFileAuthState(this.sessionPath);
 
-      // 2. Mengambil versi WhatsApp Web terbaru secara dinamis untuk menghindari Error 405 (Stage 8)
-      let version = [2, 3000, 1035194821]; // Fallback aman jika koneksi offline/gagal fetch
+      // 2. Memuat semua command ke dalam sistem sebelum memulai socket (Stage 12: Command Loader)
+      await loader.loadCommands();
+
+      // 3. Mengambil versi WhatsApp Web terbaru secara dinamis untuk menghindari Error 405 (Stage 8)
+      let version = [2, 3000, 1035194821]; // Fallback aman jika gagal fetch
       try {
         const latestVersion = await fetchLatestBaileysVersion();
         if (latestVersion && latestVersion.version) {
@@ -36,21 +40,24 @@ class SkyLightClient {
         logger.warn('Gagal mengambil versi Baileys terbaru secara dinamis, menggunakan fallback.');
       }
 
-      // 3. Inisialisasi socket Baileys dengan konfigurasi bypass 405
+      // 4. Inisialisasi socket Baileys dengan konfigurasi bypass 405 (Stage 8: Integrasi Baileys)
       this.sock = makeWASocket({
         auth: state,
-        version: version, // Menyetel versi dinamis yang baru saja di-fetch
+        version: version, 
         logger: pino({ level: 'silent' }), 
         printQRInTerminal: !config.pairing.enabled, 
-        // Mengubah platform ke macOS Desktop guna menghindari pemblokiran handshake 405 oleh WhatsApp
+        // Menggunakan fingerprint macOS Desktop untuk menghindari filter blokir 405 WhatsApp
         browser: Browsers.macOS('Desktop'), 
         markOnlineOnConnect: true
       });
 
-      // 4. Menyimpan kredensial sesi setiap kali diperbarui
+      // 5. Mendaftarkan seluruh event dinamis dari folder events/ (Stage 11: Event Loader)
+      await loader.loadEvents(this.sock);
+
+      // 6. Menyimpan kredensial sesi setiap kali diperbarui
       this.sock.ev.on('creds.update', saveCreds);
 
-      // 5. Memantau status koneksi dan penanganan login (Stage 9)
+      // 7. Memantau status koneksi dan penanganan login (Stage 9: Pairing & Reconnect)
       this.sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
 
@@ -63,7 +70,7 @@ class SkyLightClient {
         // Penanganan Pairing Code di terminal (jika pairing code diaktifkan)
         if (qr && config.pairing.enabled && !this.pairingCodeRequested) {
           this.pairingCodeRequested = true;
-          // Penundaan sejenak untuk menjamin handshake websocket telah stabil sebelum meminta kode
+          // Penundaan sejenak untuk memastikan socket siap sebelum mengirim permintaan kode
           setTimeout(async () => {
             try {
               const phoneNumber = config.pairing.phoneNumber.replace(/[^0-9]/g, '');
