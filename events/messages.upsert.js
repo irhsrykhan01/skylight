@@ -3,7 +3,10 @@ import loader from '../src/core/loader.js';
 import config from '../config.js';
 import { logger } from '../src/core/logger.js';
 import { calculateSimilarity } from '../lib/utils.js';
-import { checkPermissions } from '../src/core/permission.js'; // Import Checker
+import { checkPermissions } from '../src/core/permission.js';
+
+// Penyimpan memori cooldown rate limiter
+const cooldowns = new Map();
 
 export default {
   name: 'messages.upsert',
@@ -17,7 +20,7 @@ export default {
       const m = await serialize(sock, rawMsg);
       if (!m) return;
 
-      // Cetak log pesan masuk ke terminal
+      // Cetak log pesan masuk
       logger.info(`Pesan Masuk: [${m.pushName}] -> ${m.body || `[Tipe: ${m.type}]`}`);
 
       // --- SIKLUS HOOK 1: beforeMessage ---
@@ -76,7 +79,22 @@ export default {
 
       // --- VALIDASI HAK AKSES (Permission Checker) ---
       const hasPermission = await checkPermissions(m, { sock, commandObj: command });
-      if (!hasPermission) return; // Hentikan eksekusi jika izin ditolak
+      if (!hasPermission) return;
+
+      // --- PROTEKSI COOLDOWN (ANTI-SPAM) ---
+      const cooldownTime = (command.cooldown || 3) * 1000; // Default cooldown 3 detik jika tidak diset
+      const cooldownKey = `${m.sender}_${command.name}`;
+      const now = Date.now();
+
+      if (cooldowns.has(cooldownKey)) {
+        const expirationTime = cooldowns.get(cooldownKey) + cooldownTime;
+        if (now < expirationTime) {
+          const timeLeft = ((expirationTime - now) / 1000).toFixed(1);
+          await m.reply(`*⚠️ [ANTI-SPAM] ⚠️*\nHarap tunggu *${timeLeft}s* sebelum menggunakan perintah ini lagi.`);
+          return;
+        }
+      }
+      cooldowns.set(cooldownKey, now);
 
       // --- SIKLUS HOOK 2: beforeCommand ---
       for (const hook of loader.hooks.beforeCommand) {
