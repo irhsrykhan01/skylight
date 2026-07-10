@@ -1,0 +1,26 @@
+{
+  "name": "SkyLight-bot",
+  "version": "1.0.0",
+  "description": "A lightweight, modular, and extensible WhatsApp bot framework based on Baileys.",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [
+    "whatsapp",
+    "bot",
+    "baileys",
+    "framework",
+    "skylight",
+    "skyverse"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.9",
+    "picocolors": "^1.1.1",
+    "pino": "^9.1.0",
+    "qrcode-terminal": "^0.12.0"
+  }
+}
