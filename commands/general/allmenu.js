@@ -1,6 +1,6 @@
 import loader from '../../src/core/loader.js';
 import config from '../../config.js';
-import { renderCategoryMenu, categoryOrder } from './menu.js';
+import { renderCategoryMenu, categoryOrder } from '../../lib/menuHelper.js'; // Impor dari helper luar
 
 export default {
   name: 'allmenu',
