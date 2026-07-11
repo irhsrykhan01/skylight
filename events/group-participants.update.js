@@ -1,4 +1,5 @@
 import database from '../lib/database.js';
+import { decodeJid } from '../lib/utils.js'; // Import dekoder JID
 
 export default {
   name: 'group-participants.update',
@@ -11,17 +12,20 @@ export default {
       if (!isWelcomeEnabled) return;
 
       for (const num of participants) {
+        const cleanNum = decodeJid(num); // Dekode JID agar terbebas dari kode perangkat (:X)
+        const username = cleanNum.split('@')[0];
+        
         let text = '';
         if (action === 'add') {
-          text = `*👋 HALO & SELAMAT DATANG! 👋*\n\nSelamat datang @${num.split('@')[0]} di grup ini!\nSemoga betah dan silakan perkenalkan diri Anda dengan baik.`;
+          text = `*👋 HALO & SELAMAT DATANG! 👋*\n\nSelamat datang @${username} di grup ini!\nSemoga betah dan silakan perkenalkan diri Anda dengan baik.`;
         } else if (action === 'remove') {
-          text = `*😢 GOODBYE / SELAMAT TINGGAL! 😢*\n\n@${num.split('@')[0]} telah meninggalkan grup. Terima kasih atas kebersamaannya selama ini.`;
+          text = `*😢 GOODBYE / SELAMAT TINGGAL! 😢*\n\n@${username} telah meninggalkan grup. Terima kasih atas kebersamaannya selama ini.`;
         }
 
         if (text) {
           await sock.sendMessage(id, {
             text,
-            mentions: [num]
+            mentions: [cleanNum]
           });
         }
       }
