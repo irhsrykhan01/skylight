@@ -1,7 +1,7 @@
 import loader from '../../src/core/loader.js';
 import config from '../../config.js';
 import { formatRuntime } from '../../lib/utils.js';
-import { categoryOrder, categoryMeta, renderCategoryMenu } from './menu.js'; // Mengambil meta dari static export
+import { categoryOrder, categoryMeta, renderCategoryMenu } from '../../lib/menuHelper.js'; // Impor dari helper luar
 
 export default {
   name: 'menu',
