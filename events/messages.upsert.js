@@ -4,6 +4,8 @@ import config from '../config.js';
 import { logger } from '../src/core/logger.js';
 import { calculateSimilarity } from '../lib/utils.js';
 import { checkPermissions } from '../src/core/permission.js';
+import database from '../lib/database.js';
+import store from '../lib/store.js'; // Import penyimpan pesan sementara
 
 // Penyimpan memori cooldown rate limiter
 const cooldowns = new Map();
@@ -17,11 +19,44 @@ export default {
       if (!rawMsg) return;
       if (rawMsg.key && rawMsg.key.remoteJid === 'status@broadcast') return; 
 
+      // --- DETEKSI ANTI-DELETE (Stage 13) ---
+      const protocolMessage = rawMsg.message?.protocolMessage;
+      if (protocolMessage && protocolMessage.type === 3) {
+        const deletedId = protocolMessage.key.id;
+        const targetChat = protocolMessage.key.remoteJid;
+        
+        // Hanya proses jika terjadi di grup dan fitur anti-delete diaktifkan di grup ini
+        if (targetChat.endsWith('@g.us') && database.isPluginEnabled(targetChat, 'anti-delete')) {
+          const savedMsg = store.get(deletedId);
+          if (savedMsg) {
+            const senderJid = savedMsg.sender;
+            const username = senderJid.split('@')[0];
+            
+            let alertText = `*🕊️ [ANTI-DELETE MESSAGE] 🕊️*\n\n`;
+            alertText += `• *Nama:* ${savedMsg.pushName}\n`;
+            alertText += `• *Kontak:* @${username}\n`;
+            alertText += `• *Isi Pesan Terhapus:* \n\n"${savedMsg.body}"`;
+            
+            await sock.sendMessage(targetChat, {
+              text: alertText,
+              mentions: [senderJid]
+            });
+          }
+        }
+        return; // Selesai menangani pesan protokol penghapusan
+      }
+
+      // Serialisasi pesan masuk biasa
       const m = await serialize(sock, rawMsg);
       if (!m) return;
 
       // Cetak log pesan masuk
       logger.info(`Pesan Masuk: [${m.pushName}] -> ${m.body || `[Tipe: ${m.type}]`}`);
+
+      // --- SIMPAN PESAN UNTUK KEBUTUHAN ANTI-DELETE ---
+      if (m.body) {
+        store.save(m);
+      }
 
       // --- SIKLUS HOOK 1: beforeMessage ---
       for (const hook of loader.hooks.beforeMessage) {
@@ -82,7 +117,7 @@ export default {
       if (!hasPermission) return;
 
       // --- PROTEKSI COOLDOWN (ANTI-SPAM) ---
-      const cooldownTime = (command.cooldown || 3) * 1000; // Default cooldown 3 detik jika tidak diset
+      const cooldownTime = (command.cooldown || 3) * 1000; 
       const cooldownKey = `${m.sender}_${command.name}`;
       const now = Date.now();
 
