@@ -1,7 +1,6 @@
 import loader from '../../src/core/loader.js';
 import config from '../../config.js';
-import { formatRuntime } from '../../lib/utils.js';
-import { categoryOrder, categoryMeta, renderCategoryMenu } from '../../lib/menuHelper.js'; // Impor dari helper luar
+import { categoryOrder, categoryMeta, renderCategoryMenu } from '../../lib/menuHelper.js';
 
 export default {
   name: 'menu',
@@ -9,9 +8,27 @@ export default {
   category: 'general',
   desc: 'Menampilkan menu bantuan interaktif berdasarkan kategori.',
   async execute(m, { sock, args, prefix }) {
-    const categoryArg = args.join(' ').toLowerCase().trim();
+    let categoryArg = args.join(' ').toLowerCase().trim();
 
-    // 1. Logika penayangan spesifik kategori (.menu <kategori>)
+    // MAP NAVIGASI ANGKA TERHADAP KATEGORI FRAMEWORK (Stage 17)
+    const numberMapping = {
+      "1": "general",
+      "2": "group",
+      "3": "admin tools",
+      "4": "ai",
+      "5": "downloader",
+      "6": "sticker",
+      "7": "tools",
+      "8": "fun",
+      "9": "owner",
+      "10": "info"
+    };
+
+    if (numberMapping[categoryArg]) {
+      categoryArg = numberMapping[categoryArg];
+    }
+
+    // 1. Logika penayangan spesifik kategori (.menu <kategori> atau .menu <angka>)
     if (categoryArg) {
       if (categoryArg === 'all') {
         const allmenuCmd = loader.commands.get('allmenu');
@@ -44,26 +61,21 @@ export default {
       return await m.react('✅');
     }
 
-    // 2. Tampilkan Menu Utama berbasis Smart Fallback
-    const rows = categoryOrder.map(cat => {
+    // 2. Buat Data Baris untuk Generator Smart Fallback
+    const rows = categoryOrder.map((cat, idx) => {
       const meta = categoryMeta[cat] || { label: cat, emoji: "▫️", desc: "" };
       return {
-        title: `${meta.emoji} ${meta.label}`,
+        title: `[${idx + 1}] ${meta.label}`, // Menyertakan penomoran indeks
         id: `.menu ${cat}`,
         description: meta.desc
       };
     });
 
-    rows.push({
-      title: "📚 All Menu",
-      id: ".allmenu",
-      description: "Tampilkan seluruh kategori komando"
-    });
-
+    // Kirimkan menu menggunakan helper cerdas
     await m.menu({
       title: `🤖 MENU UTAMA ${config.botName.toUpperCase()}`,
-      body: "Pilih salah satu kategori menu di bawah ini untuk melihat daftar perintah khusus:",
-      footer: "SkyLight Interactive Menu",
+      body: "Pilih salah satu kategori menu di bawah ini untuk melihat daftar perintah khusus:\n\n*Cara Akses Cepat:*\nKetik *.menu <angka_kategori>*\n_Contoh: *.menu 1* atau *.menu general*_",
+      footer: "SkyLight Smart Fallback System",
       sections: [
         {
           title: "KATEGORI UTAMA",
