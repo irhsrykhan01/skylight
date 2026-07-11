@@ -1,4 +1,4 @@
-import { getGroupAdmins } from '../../lib/utils.js';
+import { getGroupAdmins, decodeJid } from '../../lib/utils.js';
 
 export default {
   name: 'kick',
@@ -6,17 +6,19 @@ export default {
   category: 'group',
   groupOnly: true,
   adminOnly: true,
-  cooldown: 5, // Batas jeda penggunaan 5 detik
+  cooldown: 5,
   async execute(m, { sock, args }) {
-    // Ambil target dari tag, reply, atau teks manual nomor telepon
-    const target = m.raw.message?.extendedTextMessage?.contextInfo?.mentionedJid?.[0] || 
-                   m.raw.message?.extendedTextMessage?.contextInfo?.participant || 
-                   (args[0] ? args[0].replace(/[^0-9]/g, '') + '@s.whatsapp.net' : null);
+    // Mengekstrak JID target secara aman
+    const rawTarget = m.raw.message?.extendedTextMessage?.contextInfo?.mentionedJid?.[0] || 
+                      m.raw.message?.extendedTextMessage?.contextInfo?.participant || 
+                      (args[0] ? args[0].replace(/[^0-9]/g, '') + '@s.whatsapp.net' : null);
 
-    if (!target) return m.reply('Harap tag, balas pesannya, atau ketik nomor anggota yang ingin dikeluarkan.');
+    if (!rawTarget) return m.reply('Harap tag, balas pesannya, atau ketik nomor anggota yang ingin dikeluarkan.');
 
+    const target = decodeJid(rawTarget); // Dekode target JID
+    const botId = decodeJid(sock.user.id); // Dekode bot JID secara bersih (bebas bug @s.whatsapp.net ganda)
+    
     const admins = await getGroupAdmins(sock, m.from);
-    const botId = sock.user.id.split(':')[0] + '@s.whatsapp.net';
     
     if (!admins.includes(botId)) {
       return m.reply('Gagal mengeksekusi: Bot harus menjadi Admin grup terlebih dahulu.');
