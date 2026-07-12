@@ -1,4 +1,5 @@
 import { downloaderService, handleDownloaderError } from '../../lib/downloader.js';
+
 export default {
   name: 'instagram',
   alias: ['ig', 'igdl', 'instagramdl'],
@@ -12,7 +13,8 @@ export default {
     await m.react('⏳');
     
     try {
-      const result = await downloaderService.downloadInstagram(url);
+      // Memanggil fungsi download universal
+      const result = await downloaderService.download(url, 'instagram');
       
       let caption = `🎬 *Downloader*\n`;
       caption += `━━━━━━━━━━━━━━\n`;
@@ -22,7 +24,6 @@ export default {
       caption += `• *Size     :* ${result.size || 'Unknown'}\n`;
       caption += `━━━━━━━━━━━━━━`;
 
-      // Kirim Gambar atau Video secara dinamis tergantung tipe media
       if (result.type === 'image') {
         await sock.sendMessage(m.from, {
           image: { url: result.url },
