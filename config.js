@@ -9,7 +9,7 @@ export default {
   },
   timezone: 'Asia/Jakarta',
   useInteractiveMenu: true,
-  apiBaseUrl: process.env.API_BASE_URL || "https://skylight-api-478g.vercel.app",
+  apiBaseUrl: process.env.API_BASE_URL || "https://skylight-api1.vercel.app/",
   theme: {
     primary: 'cyan',
     success: 'green',
