@@ -8,7 +8,7 @@ export default {
     phoneNumber: '628xxx' 
   },
   timezone: 'Asia/Jakarta',
-  useInteractiveMenu: false,
+  useInteractiveMenu: true,
   apiBaseUrl: process.env.API_BASE_URL || "https://skylight-api-478g.vercel.app",
   theme: {
     primary: 'cyan',
