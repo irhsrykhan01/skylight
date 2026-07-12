@@ -4,7 +4,7 @@ export default {
   owner: ['6285135044757'], 
   prefix: '.',
   pairing: {
-    enabled: true, 
+    enabled: false, 
     phoneNumber: '6283181794419' 
   },
   timezone: 'Asia/Jakarta',
