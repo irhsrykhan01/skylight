@@ -13,7 +13,8 @@ export default {
     await m.react('⏳');
     
     try {
-      const result = await downloaderService.downloadYoutube(url);
+      // Memanggil fungsi download universal
+      const result = await downloaderService.download(url, 'youtube');
       
       let caption = `🎬 *Downloader*\n`;
       caption += `━━━━━━━━━━━━━━\n`;
