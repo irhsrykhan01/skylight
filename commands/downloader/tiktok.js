@@ -13,7 +13,8 @@ export default {
     await m.react('⏳');
     
     try {
-      const result = await downloaderService.downloadTikTok(url);
+      // Memanggil fungsi download universal
+      const result = await downloaderService.download(url, 'tiktok');
       
       let caption = `🎬 *Downloader*\n`;
       caption += `━━━━━━━━━━━━━━\n`;
@@ -24,14 +25,12 @@ export default {
       if (result.title) caption += `• *Title    :* _${result.title}_\n`;
       caption += `━━━━━━━━━━━━━━`;
 
-      // Jika TikTok berupa slide foto (TikTok Slide Show)
       if (result.images && Array.isArray(result.images)) {
         for (const imgUrl of result.images) {
           await sock.sendMessage(m.from, { image: { url: imgUrl } }, { quoted: m.raw });
         }
         await m.reply(caption);
       } else {
-        // Kirim sebagai Video
         await sock.sendMessage(m.from, {
           video: { url: result.url },
           caption: caption
