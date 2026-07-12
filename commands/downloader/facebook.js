@@ -1,4 +1,5 @@
 import { downloaderService, handleDownloaderError } from '../../lib/downloader.js';
+
 export default {
   name: 'facebook',
   alias: ['fb', 'fbdl'],
@@ -12,7 +13,8 @@ export default {
     await m.react('⏳');
     
     try {
-      const result = await downloaderService.downloadFacebook(url);
+      // Memanggil fungsi download universal
+      const result = await downloaderService.download(url, 'facebook');
       
       let caption = `🎬 *Downloader*\n`;
       caption += `━━━━━━━━━━━━━━\n`;
