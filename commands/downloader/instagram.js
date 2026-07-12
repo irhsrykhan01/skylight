@@ -1,5 +1,4 @@
-import { downloaderService, handleDownloaderError } from '../../services/downloader.js';
-
+import { downloaderService, handleDownloaderError } from '../../lib/downloader.js';
 export default {
   name: 'instagram',
   alias: ['ig', 'igdl', 'instagramdl'],
