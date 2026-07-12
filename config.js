@@ -1,15 +1,15 @@
 export default {
   botName: 'SkyLight',
   version: '1.0.0',
-  owner: ['6285135044757'], // Ganti dengan nomor WhatsApp owner Anda (tanpa @s.whatsapp.net)
+  owner: ['6285135044757'], 
   prefix: '.',
   pairing: {
-    enabled: false, // Ubah ke false jika ingin menggunakan QR Code login
-    phoneNumber: '628xxx' // Nomor WhatsApp yang akan dipasangkan jika pairing.enabled = true
+    enabled: false, 
+    phoneNumber: '628xxx' 
   },
   timezone: 'Asia/Jakarta',
-  // --- TAMBAHAN CONFIG (Stage 17) ---
-  useInteractiveMenu: false, // Set ke true jika nomor bot Anda adalah akun WhatsApp Business resmi
+  useInteractiveMenu: false,
+  apiBaseUrl: process.env.API_BASE_URL || "https://skylight-api.vercel.app",
   theme: {
     primary: 'cyan',
     success: 'green',
